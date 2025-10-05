@@ -4,7 +4,7 @@ import { supabase, Appointment } from '../../lib/supabase';
 import { Calendar, Clock, MapPin, FileText, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import AppointmentDetails from './AppointmentDetails';
 
-export default function AppointmentsView() {
+export default function AppointmentsView({ openAppointmentId, onClearOpen }: { openAppointmentId?: string | null; onClearOpen?: () => void }) {
   const { profile } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +35,17 @@ export default function AppointmentsView() {
       };
     }
   }, [profile]);
+
+  // open appointment modal if parent passed an id
+  useEffect(() => {
+    if (!openAppointmentId) return;
+    // try to find the appointment in current list
+    const found = appointments.find((a) => a.id === openAppointmentId);
+    if (found) {
+      setSelectedAppointment(found);
+      if (onClearOpen) onClearOpen();
+    }
+  }, [openAppointmentId, appointments]);
 
   const fetchAppointments = async () => {
     if (!profile) return;

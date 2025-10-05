@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase, Appointment } from '../../lib/supabase';
-import { X, Calendar, Clock, MapPin, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { X, Calendar, Clock, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { generateAppointmentPDF } from '../../lib/pdf';
 
 interface AppointmentDetailsProps {
   appointment: Appointment;
@@ -11,16 +12,52 @@ interface AppointmentDetailsProps {
 
 export default function AppointmentDetails({ appointment, onClose, onUpdate }: AppointmentDetailsProps) {
   const { profile } = useAuth();
+  const [appointmentData, setAppointmentData] = useState<Appointment>(appointment);
   const [proposedDate, setProposedDate] = useState('');
   const [proposedTime, setProposedTime] = useState('');
   const [location, setLocation] = useState(appointment.location || '');
   const [doctorNotes, setDoctorNotes] = useState(appointment.doctor_notes || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [consultation, setConsultation] = useState<any | null>(null);
+  const [showCompleteForm, setShowCompleteForm] = useState(false);
+  const [symptoms, setSymptoms] = useState('');
+  const [medicines, setMedicines] = useState('');
+  const [additionalAdvice, setAdditionalAdvice] = useState('');
+  const [followUp, setFollowUp] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState('');
 
   const isDoctor = profile?.role === 'doctor';
-  const otherParty = isDoctor ? appointment.patient_profiles : appointment.doctor_profiles;
+  const otherParty = isDoctor ? appointmentData.patient_profiles : appointmentData.doctor_profiles;
   const otherProfile = otherParty?.profiles as any;
+
+  // load consultation for this appointment (if any) to show follow-up details
+  useEffect(() => {
+    let mounted = true;
+    const loadConsult = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('consultations')
+          .select('*')
+          .eq('appointment_id', appointment.id)
+          .maybeSingle();
+
+        if (error) {
+          console.warn('Failed to load consultation for appointment', error);
+          return;
+        }
+
+        if (mounted) setConsultation(data || null);
+      } catch (err) {
+        console.error('Error loading consultation', err);
+      }
+    };
+
+    loadConsult();
+    // ensure appointmentData is kept in sync with prop on mount
+    if (mounted) setAppointmentData(appointment);
+    return () => { mounted = false; };
+  }, [appointment.id]);
 
   const handleProposeTime = async () => {
     if (!proposedDate || !proposedTime) {
@@ -34,7 +71,7 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
     try {
       const proposedDateTime = new Date(`${proposedDate}T${proposedTime}`);
 
-      const { error: updateError } = await supabase
+      await supabase
         .from('appointments')
         .update({
           status: 'proposed',
@@ -44,8 +81,20 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
         })
         .eq('id', appointment.id);
 
-      if (updateError) throw updateError;
+      // refresh the appointment record (with joins) so modal can show contact info
+      const { data: refreshed } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          patient_profiles(*, profiles!patient_profiles_user_id_fkey(full_name, email)),
+          doctor_profiles(*, profiles!doctor_profiles_user_id_fkey(full_name, email))
+        `)
+        .eq('id', appointment.id)
+        .maybeSingle();
 
+      if (refreshed) setAppointmentData(refreshed as any);
+
+      onUpdate();
       const patientProfile = appointment.patient_profiles as any;
       await supabase.from('notifications').insert({
         user_id: patientProfile.user_id,
@@ -59,6 +108,37 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to propose time');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAccept = async () => {
+    // Doctor accepts the requested time and confirms appointment at the requested_date
+    setLoading(true);
+    setError('');
+
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: 'confirmed', confirmed_date: appointment.requested_date })
+        .eq('id', appointment.id);
+
+      if (error) throw error;
+
+      const patientProfile = appointment.patient_profiles as any;
+      await supabase.from('notifications').insert({
+        user_id: patientProfile.user_id,
+        title: 'Appointment Confirmed',
+        message: `Dr. ${profile?.full_name} has accepted your requested time for the appointment`,
+        type: 'appointment_confirmed',
+        related_id: appointment.id,
+      });
+
+      onUpdate();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Failed to accept appointment');
     } finally {
       setLoading(false);
     }
@@ -132,11 +212,36 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
     }
   };
 
-  const handleComplete = async () => {
+  const handleCompleteSubmit = async () => {
+    // Submit consultation details, mark appointment completed, and optionally create follow-up appointment
+    if (followUp && !followUpDate) {
+      setError('Please select a follow-up date');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
+      // Insert consultation record
+      const { data: consult, error: consultError } = await supabase
+        .from('consultations')
+        .insert({
+          appointment_id: appointment.id,
+          doctor_id: appointment.doctor_id,
+          patient_id: appointment.patient_id,
+          symptoms,
+          medicines,
+          additional_advice: additionalAdvice,
+          follow_up: followUp,
+          follow_up_date: followUp ? new Date(followUpDate).toISOString() : null,
+        })
+        .select()
+        .maybeSingle();
+
+      if (consultError) throw consultError;
+
+      // Mark appointment as completed
       const { error: updateError } = await supabase
         .from('appointments')
         .update({ status: 'completed' })
@@ -144,10 +249,32 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
 
       if (updateError) throw updateError;
 
+      // If follow up requested, create a new appointment request for the follow-up date
+      if (followUp && consult?.follow_up_date) {
+        await supabase.from('appointments').insert({
+          patient_id: appointment.patient_id,
+          doctor_id: appointment.doctor_id,
+          requested_date: consult.follow_up_date,
+          patient_notes: '',
+          doctor_notes: '',
+          status: 'pending',
+        });
+      }
+
+      // Notify patient about completed consultation
+      const patientUserId = (appointment.patient_profiles as any)?.user_id;
+      await supabase.from('notifications').insert({
+        user_id: patientUserId,
+        title: 'Consultation Completed',
+        message: `Dr. ${profile?.full_name} has marked your appointment as completed. Check details in your consultations.`,
+        type: 'consultation_completed',
+        related_id: appointment.id,
+      });
+
       onUpdate();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to mark as completed');
+      setError(err.message || 'Failed to save consultation');
     } finally {
       setLoading(false);
     }
@@ -171,16 +298,35 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
           )}
 
           <div className="bg-gray-50 rounded-xl p-4">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-teal-400 to-blue-500 rounded-full flex items-center justify-center text-white text-lg font-bold">
-                {otherProfile?.full_name?.charAt(0) || 'U'}
+            <div className="flex items-center gap-4 mb-4 justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-teal-400 to-blue-500 rounded-full flex items-center justify-center text-white text-lg font-bold">
+                  {otherProfile?.full_name?.charAt(0) || 'U'}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">
+                    {isDoctor ? '' : 'Dr. '}
+                    {otherProfile?.full_name || 'Unknown'}
+                  </h3>
+                  <p className="text-sm text-gray-600">{otherProfile?.email}</p>
+                </div>
               </div>
+
               <div>
-                <h3 className="font-semibold text-gray-900">
-                  {isDoctor ? '' : 'Dr. '}
-                  {otherProfile?.full_name || 'Unknown'}
-                </h3>
-                <p className="text-sm text-gray-600">{otherProfile?.email}</p>
+                <button
+                  onClick={async () => {
+                    if (!consultation) return;
+                    try {
+                      await generateAppointmentPDF(appointmentData as any, consultation);
+                    } catch (err) {
+                      console.error('Failed to generate PDF', err);
+                    }
+                  }}
+                  disabled={!consultation}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${consultation ? 'bg-teal-50 text-teal-700' : 'bg-gray-50 text-gray-400 cursor-not-allowed'}`}
+                >
+                  Download Report (PDF)
+                </button>
               </div>
             </div>
 
@@ -192,6 +338,16 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
                   <p>{new Date(appointment.requested_date).toLocaleString()}</p>
                 </div>
               </div>
+
+                {consultation?.follow_up && consultation?.follow_up_date && (
+                  <div className="flex items-center gap-2 text-sm text-purple-600">
+                    <Clock className="w-4 h-4" />
+                    <div>
+                      <p className="font-medium">Follow-up</p>
+                      <p>{new Date(consultation.follow_up_date).toLocaleString()}</p>
+                    </div>
+                  </div>
+                )}
 
               {appointment.proposed_date && (
                 <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -210,6 +366,26 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
                     <p className="font-medium">Confirmed</p>
                     <p>{new Date(appointment.confirmed_date).toLocaleString()}</p>
                   </div>
+                </div>
+              )}
+
+              {/* Show contact info once confirmed */}
+              {appointmentData.status === 'confirmed' && (
+                <div className="col-span-full mt-4 bg-gray-50 p-3 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-2">Contact Details</h4>
+                  {isDoctor ? (
+                    <div className="text-sm text-gray-700">
+                      <p><strong>Patient:</strong> {(appointmentData.patient_profiles as any)?.profiles?.full_name || '—'}</p>
+                      <p><strong>Email:</strong> {(appointmentData.patient_profiles as any)?.profiles?.email || '—'}</p>
+                      <p><strong>Phone:</strong> {(appointmentData.patient_profiles as any)?.phone || '—'}</p>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-700">
+                      <p><strong>Doctor:</strong> {(appointmentData.doctor_profiles as any)?.profiles?.full_name || '—'}</p>
+                      <p><strong>Email:</strong> {(appointmentData.doctor_profiles as any)?.profiles?.email || '—'}</p>
+                      <p><strong>Phone:</strong> {(appointmentData.doctor_profiles as any)?.contact_phone || '—'}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -294,6 +470,15 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
               >
                 {loading ? 'Proposing...' : 'Propose Time'}
               </button>
+
+              {/* Accept requested time */}
+              <button
+                onClick={handleAccept}
+                disabled={loading}
+                className="w-full bg-green-600 text-white py-2.5 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Accepting...' : 'Accept Requested Time'}
+              </button>
             </div>
           )}
 
@@ -314,13 +499,78 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
           )}
 
           {isDoctor && appointment.status === 'confirmed' && (
-            <button
-              onClick={handleComplete}
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Updating...' : 'Mark as Completed'}
-            </button>
+            <div className="space-y-4">
+              {!showCompleteForm ? (
+                <div>
+                  <button
+                    onClick={() => setShowCompleteForm(true)}
+                    className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Mark as Completed
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4 border-t pt-6">
+                  <h3 className="font-semibold text-gray-900">Consultation Summary</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Symptoms</label>
+                    <textarea
+                      value={symptoms}
+                      onChange={(e) => setSymptoms(e.target.value)}
+                      rows={3}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Medicines</label>
+                    <textarea
+                      value={medicines}
+                      onChange={(e) => setMedicines(e.target.value)}
+                      rows={2}
+                      placeholder="List medicines, dosage, duration"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Additional Advice</label>
+                    <textarea
+                      value={additionalAdvice}
+                      onChange={(e) => setAdditionalAdvice(e.target.value)}
+                      rows={2}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={followUp} onChange={(e) => setFollowUp(e.target.checked)} />
+                      <span className="text-sm">Schedule follow-up</span>
+                    </label>
+                    {followUp && (
+                      <input type="date" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg" />
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleCompleteSubmit}
+                      disabled={loading}
+                      className="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      {loading ? 'Saving...' : 'Save & Complete'}
+                    </button>
+                    <button
+                      onClick={() => setShowCompleteForm(false)}
+                      className="flex-1 bg-gray-50 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {appointment.status !== 'completed' && appointment.status !== 'cancelled' && (

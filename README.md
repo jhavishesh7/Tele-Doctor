@@ -1,4 +1,4 @@
-# MediConnect - Healthcare Appointment Booking Platform
+# MeroClinic - Healthcare Appointment Booking Platform
 
 A comprehensive healthcare appointment booking platform connecting patients with verified doctors across multiple medical specialties.
 

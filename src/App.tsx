@@ -8,6 +8,7 @@ import DoctorSearch from './components/patient/DoctorSearch';
 import BookAppointment from './components/patient/BookAppointment';
 import AppointmentsView from './components/shared/AppointmentsView';
 import DoctorProfileView from './components/doctor/DoctorProfile';
+import PatientProfileView from './components/patient/PatientProfileView';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ManageDoctors from './components/admin/ManageDoctors';
 import { DoctorProfile } from './lib/supabase';
@@ -16,6 +17,7 @@ function AppContent() {
   const { user, profile, loading } = useAuth();
   const [currentView, setCurrentView] = useState('home');
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile | null>(null);
+  const [openAppointmentId, setOpenAppointmentId] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -32,9 +34,12 @@ function AppContent() {
     return <AuthPage />;
   }
 
-  const handleNavigate = (view: string) => {
+  const handleNavigate = (view: string, payload?: { openAppointmentId?: string }) => {
     setCurrentView(view);
     setSelectedDoctor(null);
+    if (payload?.openAppointmentId) {
+      setOpenAppointmentId(payload.openAppointmentId);
+    }
   };
 
   const handleSelectDoctor = (doctor: DoctorProfile) => {
@@ -43,51 +48,16 @@ function AppContent() {
 
   const renderContent = () => {
     if (profile.role === 'patient') {
-      switch (currentView) {
+        switch (currentView) {
         case 'home':
           return <PatientHome onNavigate={handleNavigate} />;
         case 'doctors':
           return <DoctorSearch onSelectDoctor={handleSelectDoctor} />;
         case 'appointments':
-          return <AppointmentsView />;
+          return <AppointmentsView openAppointmentId={openAppointmentId} onClearOpen={() => setOpenAppointmentId(null)} />;
         case 'profile':
-          return (
-            <div className="max-w-4xl">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">My Profile</h1>
-              <p className="text-gray-600 mb-6">Manage your personal information</p>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-                    <input
-                      type="text"
-                      value={profile.full_name}
-                      disabled
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                    <input
-                      type="email"
-                      value={profile.email}
-                      disabled
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-                    <input
-                      type="text"
-                      value={profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
-                      disabled
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
+          // Fetch extended patient profile locally to display detailed fields
+          return <PatientProfileView profile={profile} />;
         default:
           return <PatientHome onNavigate={handleNavigate} />;
       }

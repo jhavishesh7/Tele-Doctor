@@ -1,12 +1,12 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, Notification } from '../lib/supabase';
-import { Stethoscope, Bell, User, LogOut, Settings, Calendar, Home, Users } from 'lucide-react';
+import { Bell, User, LogOut, Settings, Calendar, Home, Users } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
   currentView: string;
-  onNavigate: (view: string) => void;
+  onNavigate: (view: string, payload?: { openAppointmentId?: string }) => void;
 }
 
 export default function Layout({ children, currentView, onNavigate }: LayoutProps) {
@@ -116,22 +116,22 @@ export default function Layout({ children, currentView, onNavigate }: LayoutProp
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center">
-                <Stethoscope className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md animate-float">
+                <img src="/asset/logo.png" alt="MeroClinic" className="w-10 h-10 object-cover block" />
               </div>
-              <span className="text-xl font-bold text-gray-900">MediConnect</span>
+              <span className="text-xl font-bold text-gray-900 ml-3 animate-fade-in">MeroClinic</span>
             </div>
 
             <div className="hidden md:flex items-center gap-1">
-              {getNavItems().map((item) => {
+                {getNavItems().map((item) => {
                 const Icon = item.icon;
                 return (
                   <button
                     key={item.id}
                     onClick={() => onNavigate(item.id)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors transform hover:-translate-y-0.5 hover:scale-[1.01] flex items-center gap-2 ${
                       currentView === item.id
-                        ? 'bg-teal-50 text-teal-600'
+                        ? 'bg-teal-50 text-teal-600 shadow-inner'
                         : 'text-gray-600 hover:bg-gray-50'
                     }`}
                   >

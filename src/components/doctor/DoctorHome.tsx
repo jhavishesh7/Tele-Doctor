@@ -4,7 +4,7 @@ import { supabase, Appointment } from '../../lib/supabase';
 import { Calendar, Clock, Users, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface DoctorHomeProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: string, payload?: { openAppointmentId?: string }) => void;
 }
 
 export default function DoctorHome({ onNavigate }: DoctorHomeProps) {
@@ -16,12 +16,14 @@ export default function DoctorHome({ onNavigate }: DoctorHomeProps) {
   });
   const [recentAppointments, setRecentAppointments] = useState<Appointment[]>([]);
   const [isVerified, setIsVerified] = useState(false);
+  const [followUps, setFollowUps] = useState<any[]>([]);
 
   useEffect(() => {
     if (profile) {
       checkVerification();
       fetchStats();
       fetchRecentAppointments();
+      fetchFollowUps();
     }
   }, [profile]);
 
@@ -88,6 +90,30 @@ export default function DoctorHome({ onNavigate }: DoctorHomeProps) {
       .limit(5);
 
     if (data) setRecentAppointments(data as any);
+  };
+
+  const fetchFollowUps = async () => {
+    if (!profile) return;
+
+    const { data: doctorProfile } = await supabase
+      .from('doctor_profiles')
+      .select('id')
+      .eq('user_id', profile.id)
+      .single();
+
+    if (!doctorProfile) return;
+
+    const now = new Date().toISOString();
+    const { data } = await supabase
+      .from('consultations')
+      .select('*')
+      .eq('doctor_id', doctorProfile.id)
+      .eq('follow_up', true)
+      .gte('follow_up_date', now)
+      .order('follow_up_date', { ascending: true })
+      .limit(5);
+
+    if (data) setFollowUps(data as any);
   };
 
   return (
@@ -217,6 +243,29 @@ export default function DoctorHome({ onNavigate }: DoctorHomeProps) {
           >
             Manage Profile
           </button>
+        </div>
+        
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-teal-600" />
+            Upcoming Follow-ups
+          </h3>
+
+          {followUps.length === 0 ? (
+            <p className="text-gray-500 text-sm text-center py-8">No upcoming follow-ups</p>
+          ) : (
+            <div className="space-y-3">
+              {followUps.map((f) => (
+                <div key={f.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{new Date(f.follow_up_date).toLocaleDateString()}</p>
+                    <p className="text-xs text-gray-600 truncate">{(f.symptoms || 'No notes')}</p>
+                  </div>
+                  <button onClick={() => onNavigate('appointments', { openAppointmentId: f.appointment_id })} className="text-teal-600 text-sm">View</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

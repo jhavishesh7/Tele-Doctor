@@ -6,6 +6,7 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  isSigningUp: boolean;
   signUp: (email: string, password: string, fullName: string, role: UserRole) => Promise<{ error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
@@ -18,6 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSigningUp, setIsSigningUp] = useState(false);
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
@@ -56,44 +58,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string, role: UserRole) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    setIsSigningUp(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-    if (data.user && !error) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          role,
-          full_name: fullName,
-          email,
-        });
-
-      if (profileError) {
-        return { error: profileError as unknown as AuthError };
+      if (error) {
+        setIsSigningUp(false);
+        return { error };
       }
 
-      if (role === 'doctor') {
-        await supabase
-          .from('doctor_profiles')
+      // ensure we have a user before creating profile rows
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
           .insert({
-            user_id: data.user.id,
-            category_id: (await supabase.from('medical_categories').select('id').limit(1).single()).data?.id,
-            qualifications: '',
-            experience_years: 0,
+            id: data.user.id,
+            role,
+            full_name: fullName,
+            email,
           });
-      } else if (role === 'patient') {
-        await supabase
-          .from('patient_profiles')
-          .insert({
-            user_id: data.user.id,
-          });
+
+        // If we couldn't create the base profile, return the error and stop
+        if (profileError) {
+          setIsSigningUp(false);
+          return { error: profileError as unknown as AuthError };
+        }
+
+        // Create role-specific extended profiles, but don't block signup on failures here
+        if (role === 'doctor') {
+          try {
+            await supabase
+              .from('doctor_profiles')
+              .insert({
+                user_id: data.user.id,
+                category_id: (await supabase.from('medical_categories').select('id').limit(1).single()).data?.id,
+                qualifications: '',
+                experience_years: 0,
+              });
+          } catch (err) {
+            console.warn('doctor_profiles insert failed, continuing signup', err);
+          }
+        } else if (role === 'patient') {
+          try {
+            await supabase
+              .from('patient_profiles')
+              .insert({
+                user_id: data.user.id,
+              });
+          } catch (err) {
+            // don't block signup if patient_profiles insert fails (server policies/misconfig can cause 500s)
+            console.warn('patient_profiles insert failed, continuing signup', err);
+          }
+        }
       }
+
+      setIsSigningUp(false);
+      return { error: null };
+    } catch (err: any) {
+      setIsSigningUp(false);
+      return { error: err as AuthError };
     }
-
-    return { error };
   };
 
   const signIn = async (email: string, password: string) => {
@@ -116,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, isSigningUp, signUp, signIn, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

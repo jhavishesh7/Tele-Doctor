@@ -11,7 +11,7 @@ export default function AuthPage() {
   const [role, setRole] = useState<UserRole>('patient');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, isSigningUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,6 +22,9 @@ export default function AuthPage() {
       if (isSignUp) {
         const { error } = await signUp(email, password, fullName, role);
         if (error) throw error;
+        // Successful signup — reload so AuthProvider picks up the new session/profile
+        // (Supabase may require email confirmation; this forces the app to re-check session)
+        window.location.reload();
       } else {
         const { error } = await signIn(email, password);
         if (error) throw error;
@@ -41,7 +44,7 @@ export default function AuthPage() {
             <div className="w-12 h-12 bg-teal-600 rounded-xl flex items-center justify-center">
               <Stethoscope className="w-7 h-7 text-white" />
             </div>
-            <span className="text-2xl font-bold text-gray-900">MediConnect</span>
+              <span className="text-2xl font-bold text-gray-900">MeroClinic</span>
           </div>
           <h1 className="text-4xl font-bold text-gray-900 leading-tight">
             Connect with Healthcare Professionals
@@ -77,7 +80,7 @@ export default function AuthPage() {
             <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center">
               <Stethoscope className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold text-gray-900">MediConnect</span>
+              <span className="text-xl font-bold text-gray-900">MeroClinic</span>
           </div>
 
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -198,6 +201,16 @@ export default function AuthPage() {
               {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
             </button>
           </form>
+
+          {/* Signing up overlay (covers the form while sign-up process runs) */}
+          {isSigningUp && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-xl p-6 flex items-center gap-4 shadow-lg">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+                <div className="text-sm font-medium text-gray-800">Signing up...</div>
+              </div>
+            </div>
+          )}
 
           <div className="mt-6 text-center">
             <button

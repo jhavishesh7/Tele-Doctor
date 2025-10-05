@@ -1,0 +1,21 @@
+{
+  "name": "MeroClinic",
+  "short_name": "MeroClinic",
+  "description": "Your Health, Our Priority — Book appointments and manage consultations.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0ea5a3",
+  "icons": [
+    {
+      "src": "/asset/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/asset/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
