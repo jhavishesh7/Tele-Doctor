@@ -58,6 +58,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string, role: UserRole) => {
+    // Disallow client-side signup as admin. Admin accounts must be created by an admin or via server-side process.
+    if (role === 'admin') {
+      setIsSigningUp(false);
+      return { error: { message: 'Admin signup is disabled', name: 'SignupError' } as unknown as AuthError };
+    }
     setIsSigningUp(true);
     try {
       const { data, error } = await supabase.auth.signUp({

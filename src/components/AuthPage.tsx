@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole } from '../lib/supabase';
-import { Stethoscope, User, Shield } from 'lucide-react';
+import { Stethoscope, User } from 'lucide-react';
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -117,7 +117,7 @@ export default function AuthPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     I am a
                   </label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => setRole('patient')}
@@ -144,20 +144,6 @@ export default function AuthPage() {
                       <Stethoscope className={`w-6 h-6 mx-auto mb-1 ${role === 'doctor' ? 'text-teal-600' : 'text-gray-400'}`} />
                       <span className={`text-xs font-medium ${role === 'doctor' ? 'text-teal-600' : 'text-gray-600'}`}>
                         Doctor
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRole('admin')}
-                      className={`p-3 rounded-lg border-2 transition-all ${
-                        role === 'admin'
-                          ? 'border-teal-600 bg-teal-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <Shield className={`w-6 h-6 mx-auto mb-1 ${role === 'admin' ? 'text-teal-600' : 'text-gray-400'}`} />
-                      <span className={`text-xs font-medium ${role === 'admin' ? 'text-teal-600' : 'text-gray-600'}`}>
-                        Admin
                       </span>
                     </button>
                   </div>
