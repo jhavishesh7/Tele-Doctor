@@ -16,14 +16,35 @@ export default function PatientHome({ onNavigate }: PatientHomeProps) {
   });
   const [recentAppointments, setRecentAppointments] = useState<Appointment[]>([]);
   const [followUps, setFollowUps] = useState<any[]>([]);
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
 
   useEffect(() => {
     if (profile) {
       fetchStats();
       fetchRecentAppointments();
       fetchFollowUps();
+      checkProfileCompleteness();
     }
   }, [profile]);
+
+  const checkProfileCompleteness = async () => {
+    if (!profile) return;
+    try {
+      const { data: patientProfile } = await supabase
+        .from('patient_profiles')
+        .select('phone,address')
+        .eq('user_id', profile.id)
+        .maybeSingle();
+
+      if (!patientProfile || !patientProfile.phone || !patientProfile.address) {
+        setProfileIncomplete(true);
+      } else {
+        setProfileIncomplete(false);
+      }
+    } catch (err) {
+      console.error('Failed to check profile completeness', err);
+    }
+  };
 
   const fetchStats = async () => {
     if (!profile) return;
@@ -109,6 +130,18 @@ export default function PatientHome({ onNavigate }: PatientHomeProps) {
           Welcome back, {profile?.full_name}!
         </h1>
         <p className="text-gray-600">Here's an overview of your healthcare appointments</p>
+
+        {profileIncomplete && (
+          <div className="mt-4 p-4 rounded-lg bg-yellow-50 border border-yellow-200 flex items-center justify-between">
+            <div>
+              <p className="font-medium text-yellow-900">Complete your profile</p>
+              <p className="text-sm text-yellow-700">Please add your phone number and address so doctors can contact you and appointments can be scheduled.</p>
+            </div>
+            <div>
+              <button onClick={() => onNavigate('profile')} className="px-4 py-2 bg-yellow-600 text-white rounded-lg">Complete Profile</button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">

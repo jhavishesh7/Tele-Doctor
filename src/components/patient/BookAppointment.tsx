@@ -14,6 +14,7 @@ export default function BookAppointment({ doctor, onClose, onSuccess }: BookAppo
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [notes, setNotes] = useState('');
+  const [location, setLocation] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -35,6 +36,12 @@ export default function BookAppointment({ doctor, onClose, onSuccess }: BookAppo
         throw new Error('Patient profile not found');
       }
 
+      // enforce profile completeness: phone and address required before booking
+      const { data: patientDetails } = await supabase.from('patient_profiles').select('phone,address').eq('id', patientProfile.id).maybeSingle();
+      if (!patientDetails || !patientDetails.phone || !patientDetails.address) {
+        throw new Error('Please complete your profile (phone and address required) before booking an appointment');
+      }
+
       const requestedDateTime = new Date(`${date}T${time}`);
 
       const { error: appointmentError } = await supabase
@@ -44,6 +51,7 @@ export default function BookAppointment({ doctor, onClose, onSuccess }: BookAppo
           doctor_id: doctor.id,
           requested_date: requestedDateTime.toISOString(),
           patient_notes: notes,
+          location,
           status: 'pending',
         });
 
@@ -145,6 +153,11 @@ export default function BookAppointment({ doctor, onClose, onSuccess }: BookAppo
                 placeholder="Describe your symptoms or reason for visit..."
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Location (optional)</label>
+              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., Clinic A, Main St" className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

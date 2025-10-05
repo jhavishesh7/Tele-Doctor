@@ -74,6 +74,11 @@ export default function DoctorProfileView() {
     setSaving(true);
 
     try {
+      // validate required fields
+      if (!formData.contact_phone || !formData.location) {
+        throw new Error('Contact phone and location are required');
+      }
+
       const { error: updateError } = await supabase
         .from('doctor_profiles')
         .update(formData)
@@ -133,7 +138,7 @@ export default function DoctorProfileView() {
       )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
-        <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Full Name
