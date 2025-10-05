@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, Notification } from '../lib/supabase';
-import { Bell, User, LogOut, Settings, Calendar, Home, Users } from 'lucide-react';
+import { Bell, User, LogOut, Settings, Calendar, Home, Users, Menu, X } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -11,6 +11,7 @@ interface LayoutProps {
 
 export default function Layout({ children, currentView, onNavigate }: LayoutProps) {
   const { profile, signOut } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -143,6 +144,14 @@ export default function Layout({ children, currentView, onNavigate }: LayoutProp
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setMobileOpen(!mobileOpen)}
+                className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors mr-2"
+                aria-label="Toggle menu"
+              >
+                {mobileOpen ? <X className="w-5 h-5 text-gray-600" /> : <Menu className="w-5 h-5 text-gray-600" />}
+              </button>
+
               <div className="relative">
                 <button
                   onClick={() => setShowNotifications(!showNotifications)}
@@ -218,26 +227,50 @@ export default function Layout({ children, currentView, onNavigate }: LayoutProp
           </div>
 
           <div className="md:hidden flex items-center gap-1 pb-2 overflow-x-auto">
+            {/* Mobile nav placeholder - replaced by slide-down panel */}
+            <div className="text-sm text-gray-500">Menu</div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Mobile slide-down menu */}
+      {mobileOpen && (
+        <div className="md:hidden bg-white border-t border-gray-100 shadow-md">
+          <div className="max-w-7xl mx-auto px-4 py-4 space-y-2">
             {getNavItems().map((item) => {
               const Icon = item.icon;
               return (
                 <button
                   key={item.id}
-                  onClick={() => onNavigate(item.id)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${
-                    currentView === item.id
-                      ? 'bg-teal-50 text-teal-600'
-                      : 'text-gray-600 hover:bg-gray-50'
+                  onClick={() => {
+                    onNavigate(item.id);
+                    setMobileOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-3 rounded-lg font-medium transition-colors flex items-center gap-3 ${
+                    currentView === item.id ? 'bg-teal-50 text-teal-600' : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-5 h-5" />
                   {item.label}
                 </button>
               );
             })}
+
+            <div className="pt-2 border-t border-gray-100">
+              <button
+                onClick={() => {
+                  setMobileOpen(false);
+                  signOut();
+                }}
+                className="w-full text-left px-3 py-3 rounded-lg font-medium text-red-600 hover:bg-red-50 flex items-center gap-3"
+              >
+                <LogOut className="w-5 h-5" />
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
-      </nav>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}

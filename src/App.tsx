@@ -15,22 +15,69 @@ import ManageDoctors from './components/admin/ManageDoctors';
 import { DoctorProfile } from './lib/supabase';
 
 function AppContent() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, isSigningUp } = useAuth();
   const [currentView, setCurrentView] = useState('home');
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile | null>(null);
   const [openAppointmentId, setOpenAppointmentId] = useState<string | null>(null);
   const [showAuth, setShowAuth] = useState(false);
 
-  if (loading) {
+  // When a signup is in progress show a focused signing-up screen so the user
+  // isn't bounced back to the landing page during the account creation flow.
+  if (isSigningUp) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-teal-600"></div>
-          <p className="mt-4 text-gray-600 text-lg">Loading...</p>
+      <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-6">
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-teal-200 animate-ping"></div>
+            <div className="rounded-full h-20 w-20 flex items-center justify-center bg-teal-600 shadow-lg">
+              <span className="text-white text-2xl font-bold">+</span>
+            </div>
+          </div>
+
+          <h1 className="text-3xl font-extrabold text-teal-700 animate-pulse tracking-wide">
+            Mero Clinic
+          </h1>
+
+          <p className="text-gray-600 text-lg">Signing up... Redirecting to the app</p>
         </div>
       </div>
     );
   }
+
+  if (loading) {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white flex items-center justify-center">
+      <div className="flex flex-col items-center space-y-6">
+        {/* Heartbeat pulse circle */}
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full bg-teal-200 animate-ping"></div>
+          <div className="rounded-full h-20 w-20 flex items-center justify-center bg-teal-600 shadow-lg">
+            <span className="text-white text-2xl font-bold">+</span>
+          </div>
+        </div>
+
+        {/* App name with heartbeat animation */}
+        <h1 className="text-3xl font-extrabold text-teal-700 animate-pulse tracking-wide">
+          Mero Clinic
+        </h1>
+
+        {/* Fancy loading text */}
+        <p className="text-gray-600 text-lg flex items-center space-x-1">
+          <span className="animate-bounce">L</span>
+          <span className="animate-bounce delay-100">o</span>
+          <span className="animate-bounce delay-200">a</span>
+          <span className="animate-bounce delay-300">d</span>
+          <span className="animate-bounce delay-400">i</span>
+          <span className="animate-bounce delay-500">n</span>
+          <span className="animate-bounce delay-600">g</span>
+          <span className="animate-bounce delay-700">.</span>
+          <span className="animate-bounce delay-800">.</span>
+          <span className="animate-bounce delay-900">.</span>
+        </p>
+      </div>
+    </div>
+  );
+}
 
     if (!user || !profile) {
     // Show landing page for unauthenticated visitors; they can open auth modal/page when ready

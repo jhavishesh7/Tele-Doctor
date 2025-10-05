@@ -258,7 +258,13 @@ export default function DoctorHome({ onNavigate }: DoctorHomeProps) {
               {followUps.map((f) => (
                 <div key={f.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{new Date(f.follow_up_date).toLocaleDateString()}</p>
+                    <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                      {new Date(f.follow_up_date).toLocaleDateString()}
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 relative">
+                        <span className="absolute -left-2 -top-1 w-3 h-3 bg-purple-300 rounded-full animate-ping opacity-60"></span>
+                        <span className="relative">Follow-up</span>
+                      </span>
+                    </p>
                     <p className="text-xs text-gray-600 truncate">{(f.symptoms || 'No notes')}</p>
                   </div>
                   <button onClick={() => onNavigate('appointments', { openAppointmentId: f.appointment_id })} className="text-teal-600 text-sm">View</button>

@@ -26,6 +26,7 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
   const [additionalAdvice, setAdditionalAdvice] = useState('');
   const [followUp, setFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpTime, setFollowUpTime] = useState('');
 
   const isDoctor = profile?.role === 'doctor';
   const otherParty = isDoctor ? appointmentData.patient_profiles : appointmentData.doctor_profiles;
@@ -214,8 +215,8 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
 
   const handleCompleteSubmit = async () => {
     // Submit consultation details, mark appointment completed, and optionally create follow-up appointment
-    if (followUp && !followUpDate) {
-      setError('Please select a follow-up date');
+    if (followUp && (!followUpDate || !followUpTime)) {
+      setError('Please select a follow-up date and time');
       return;
     }
 
@@ -234,7 +235,8 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
           medicines,
           additional_advice: additionalAdvice,
           follow_up: followUp,
-          follow_up_date: followUp ? new Date(followUpDate).toISOString() : null,
+          // combine date + time into a single ISO datetime to preserve chosen time
+          follow_up_date: followUp ? new Date(`${followUpDate}T${followUpTime}`).toISOString() : null,
         })
         .select()
         .maybeSingle();
@@ -259,6 +261,20 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
           doctor_notes: '',
           status: 'pending',
         });
+        // Also create a scheduled notification that a follow-up is due on that date.
+        try {
+          await supabase.from('notifications').insert({
+            user_id: (appointment.patient_profiles as any)?.user_id,
+            title: 'Follow-up Scheduled',
+            message: `A follow-up with Dr. ${(appointment.doctor_profiles as any)?.profiles?.full_name || ''} is scheduled for ${new Date(consult.follow_up_date).toLocaleString()}.`,
+            type: 'follow_up_scheduled',
+            related_id: appointment.id,
+            // set created_at to the follow-up datetime so backend digest jobs can query by this timestamp
+            created_at: consult.follow_up_date,
+          });
+        } catch (notifErr) {
+          console.warn('Failed to insert follow-up notification (non-blocking)', notifErr);
+        }
       }
 
       // Notify patient about completed consultation
@@ -317,7 +333,7 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
                   onClick={async () => {
                     if (!consultation) return;
                     try {
-                      await generateAppointmentPDF(appointmentData as any, consultation);
+                      await generateAppointmentPDF(appointmentData, consultation);
                     } catch (err) {
                       console.error('Failed to generate PDF', err);
                     }
@@ -343,7 +359,13 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
                   <div className="flex items-center gap-2 text-sm text-purple-600">
                     <Clock className="w-4 h-4" />
                     <div>
-                      <p className="font-medium">Follow-up</p>
+                      <p className="font-medium flex items-center gap-2">
+                        <span>Follow-up</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 relative">
+                          <span className="absolute -left-2 -top-1 w-3 h-3 bg-purple-300 rounded-full animate-ping opacity-60"></span>
+                          <span className="relative">Scheduled</span>
+                        </span>
+                      </p>
                       <p>{new Date(consultation.follow_up_date).toLocaleString()}</p>
                     </div>
                   </div>
@@ -549,7 +571,10 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
                       <span className="text-sm">Schedule follow-up</span>
                     </label>
                     {followUp && (
-                      <input type="date" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg" />
+                      <div className="flex items-center gap-2">
+                        <input type="date" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg" />
+                        <input type="time" value={followUpTime} onChange={(e) => setFollowUpTime(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg" />
+                      </div>
                     )}
                   </div>
 
