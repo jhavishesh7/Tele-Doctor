@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthPage from './components/AuthPage';
+import LandingPage from './components/LandingPage';
 import Layout from './components/Layout';
 import PatientHome from './components/patient/PatientHome';
 import DoctorHome from './components/doctor/DoctorHome';
@@ -18,6 +19,7 @@ function AppContent() {
   const [currentView, setCurrentView] = useState('home');
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile | null>(null);
   const [openAppointmentId, setOpenAppointmentId] = useState<string | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
 
   if (loading) {
     return (
@@ -30,8 +32,10 @@ function AppContent() {
     );
   }
 
-  if (!user || !profile) {
-    return <AuthPage />;
+    if (!user || !profile) {
+    // Show landing page for unauthenticated visitors; they can open auth modal/page when ready
+    if (showAuth) return <AuthPage />;
+    return <LandingPage onShowAuth={() => setShowAuth(true)} />;
   }
 
   const handleNavigate = (view: string, payload?: { openAppointmentId?: string }) => {
