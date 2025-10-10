@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase, DoctorProfile } from '../../lib/supabase';
-import { X, Calendar, Clock, FileText } from 'lucide-react';
+import { supabase, DoctorProfile, AppointmentType } from '../../lib/supabase';
+import { X, Calendar, Clock, FileText, Video, MapPin } from 'lucide-react';
 
 interface BookAppointmentProps {
   doctor: DoctorProfile;
@@ -15,6 +15,7 @@ export default function BookAppointment({ doctor, onClose, onSuccess }: BookAppo
   const [time, setTime] = useState('');
   const [notes, setNotes] = useState('');
   const [location, setLocation] = useState('');
+  const [appointmentType, setAppointmentType] = useState<AppointmentType>('offline');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -51,7 +52,8 @@ export default function BookAppointment({ doctor, onClose, onSuccess }: BookAppo
           doctor_id: doctor.id,
           requested_date: requestedDateTime.toISOString(),
           patient_notes: notes,
-          location,
+          location: appointmentType === 'offline' ? location : 'Online Video Call',
+          appointment_type: appointmentType,
           status: 'pending',
         });
 
@@ -156,13 +158,45 @@ export default function BookAppointment({ doctor, onClose, onSuccess }: BookAppo
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Location (optional)</label>
-              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., Clinic A, Main St" className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+              <label className="block text-sm font-medium text-gray-700 mb-2">Appointment Type</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAppointmentType('offline')}
+                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                    appointmentType === 'offline'
+                      ? 'border-teal-500 bg-teal-50 text-teal-700'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                  }`}
+                >
+                  <MapPin className="w-5 h-5" />
+                  <span className="font-medium">In-Person</span>
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  title="Coming Soon"
+                  className="relative flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-gray-200 bg-gray-50 text-gray-400 cursor-default"
+                >
+                  <Video className="w-5 h-5" />
+                  <span className="font-medium">Video Call</span>
+                  <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full font-semibold">
+                    Coming Soon
+                  </span>
+                </button>
+              </div>
             </div>
+
+            {appointmentType === 'offline' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Location (optional)</label>
+                <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., Clinic A, Main St" className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+              </div>
+            )}
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
-                <strong>Note:</strong> This is a request. The doctor will review and propose a final appointment time and location.
+                <strong>Note:</strong> This is a request. The doctor will review and propose a final appointment time{appointmentType === 'offline' ? ' and location' : ''}.
               </p>
             </div>
 

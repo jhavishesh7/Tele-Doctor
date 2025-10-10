@@ -7,4 +7,15 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  define: {
+    global: 'globalThis',
+    'process.env': {},
+  },
+  resolve: {
+    alias: {
+      events: 'events',
+      stream: 'stream-browserify',
+      util: 'util',
+    },
+  },
 });

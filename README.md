@@ -7,8 +7,9 @@ A comprehensive healthcare appointment booking platform connecting patients with
 ### Patient Features
 - Search and filter doctors by specialty, location, and experience
 - View detailed doctor profiles with qualifications and fees
-- Request appointments with preferred dates and times
+- Request appointments with preferred dates and times (online or in-person)
 - Receive and respond to doctor's proposed appointment times
+- Join video consultations for online appointments
 - View appointment history and upcoming appointments
 - Real-time notifications for appointment updates
 
@@ -17,6 +18,7 @@ A comprehensive healthcare appointment booking platform connecting patients with
 - Set consultation fees and availability
 - Review appointment requests from patients
 - Propose alternative times and locations
+- Start and manage video consultations for online appointments
 - Manage confirmed appointments
 - Profile visibility controls
 
@@ -33,6 +35,7 @@ A comprehensive healthcare appointment booking platform connecting patients with
 - Vite for build tooling
 - Tailwind CSS for styling
 - Supabase for backend (authentication, database, real-time)
+- Simple-peer for WebRTC video calling
 - Lucide React for icons
 
 ## Getting Started
@@ -76,12 +79,17 @@ npm run build
 ## Appointment Flow
 
 1. Patient searches for a doctor
-2. Patient requests an appointment with preferred date/time
+2. Patient requests an appointment with preferred date/time and selects appointment type (online or in-person)
 3. Doctor receives notification and reviews request
-4. Doctor proposes a final time and location
+4. Doctor proposes a final time and location (or confirms online meeting)
 5. Patient receives notification and confirms
 6. Appointment is confirmed and both parties are notified
-7. Doctor can mark as completed after the appointment
+7. For online appointments:
+   - Doctor starts the video call at the scheduled time
+   - Patient receives notification and joins the call
+   - Both parties can use video, audio, and screen sharing features
+   - Either party can end the call
+8. Doctor can mark as completed after the appointment
 
 ## Security
 
@@ -96,5 +104,24 @@ npm run build
 - `medical_categories` - Medical specialties
 - `doctor_profiles` - Extended doctor information
 - `patient_profiles` - Patient information
-- `appointments` - Appointment bookings and status
+- `appointments` - Appointment bookings and status (includes appointment_type and call tracking)
+- `call_sessions` - Video call session management and WebRTC signaling
 - `notifications` - Real-time notification system
+
+## Video Call Features
+
+### For Doctors
+- **Start Call**: Initiate video consultation at scheduled time
+- **Controls**: Mute/unmute audio, turn video on/off, share screen
+- **End Call**: Terminate the consultation session
+
+### For Patients
+- **Join Call**: Join when doctor starts the consultation
+- **Controls**: Mute/unmute audio, turn video on/off
+- **Notifications**: Real-time alerts when doctor starts call
+
+### Technical Implementation
+- **WebRTC**: Peer-to-peer video/audio streaming via simple-peer
+- **Signaling**: Supabase Realtime for connection establishment
+- **Session Management**: Database-backed call state tracking
+- **Security**: End-to-end encrypted media streams

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase, Appointment } from '../../lib/supabase';
-import { X, Calendar, Clock, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { X, Calendar, Clock, FileText, CheckCircle, XCircle, Video, PhoneCall } from 'lucide-react';
 import { generateAppointmentPDF } from '../../lib/pdf';
+import { useCallSession } from '../../hooks/useCallSession';
+import VideoCall from './VideoCall';
 
 interface AppointmentDetailsProps {
   appointment: Appointment;
@@ -27,6 +29,9 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
   const [followUp, setFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState('');
+  const [showVideoCall, setShowVideoCall] = useState(false);
+
+  const { callSession, startCall, joinCall } = useCallSession(appointmentData);
 
   const isDoctor = profile?.role === 'doctor';
   const otherParty = isDoctor ? appointmentData.patient_profiles : appointmentData.doctor_profiles;
@@ -213,6 +218,41 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
     }
   };
 
+  const handleStartCall = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const session = await startCall();
+      if (session) {
+        setShowVideoCall(true);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to start call');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleJoinCall = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const success = await joinCall();
+      if (success) {
+        setShowVideoCall(true);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to join call');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCallEnded = () => {
+    setShowVideoCall(false);
+    onUpdate();
+  };
+
   const handleCompleteSubmit = async () => {
     // Submit consultation details, mark appointment completed, and optionally create follow-up appointment
     if (followUp && (!followUpDate || !followUpTime)) {
@@ -295,6 +335,18 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
       setLoading(false);
     }
   };
+
+  // Show video call interface if active
+  if (showVideoCall && callSession) {
+    return (
+      <VideoCall
+        appointment={appointmentData}
+        callSession={callSession}
+        onClose={() => setShowVideoCall(false)}
+        onCallEnded={handleCallEnded}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -517,6 +569,64 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
                 <CheckCircle className="w-5 h-5" />
                 {loading ? 'Confirming...' : 'Confirm Appointment'}
               </button>
+            </div>
+          )}
+
+          {appointmentData.status === 'confirmed' && appointmentData.appointment_type === 'online' && (
+            <div className="space-y-3 border-t pt-6">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Video className="w-5 h-5 text-teal-600" />
+                Video Consultation
+              </h3>
+              
+              {appointmentData.call_status === 'not_started' && isDoctor && (
+                <button
+                  onClick={handleStartCall}
+                  disabled={loading}
+                  className="w-full bg-teal-600 text-white py-3 rounded-lg font-medium hover:bg-teal-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Video className="w-5 h-5" />
+                  {loading ? 'Starting Call...' : 'Start Video Call'}
+                </button>
+              )}
+
+              {appointmentData.call_status === 'waiting' && !isDoctor && (
+                <button
+                  onClick={handleJoinCall}
+                  disabled={loading}
+                  className="w-full bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 animate-pulse"
+                >
+                  <PhoneCall className="w-5 h-5" />
+                  {loading ? 'Joining...' : 'Join Video Call'}
+                </button>
+              )}
+
+              {appointmentData.call_status === 'waiting' && isDoctor && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                  <p className="text-sm text-yellow-800">
+                    Waiting for patient to join...
+                  </p>
+                </div>
+              )}
+
+              {appointmentData.call_status === 'active' && (
+                <button
+                  onClick={handleJoinCall}
+                  disabled={loading}
+                  className="w-full bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Video className="w-5 h-5" />
+                  {loading ? 'Rejoining...' : 'Rejoin Call'}
+                </button>
+              )}
+
+              {appointmentData.call_status === 'ended' && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-sm text-gray-600">
+                    Call ended
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

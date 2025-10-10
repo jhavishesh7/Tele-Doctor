@@ -8,8 +8,8 @@ import DoctorHome from './components/doctor/DoctorHome';
 import DoctorSearch from './components/patient/DoctorSearch';
 import BookAppointment from './components/patient/BookAppointment';
 import AppointmentsView from './components/shared/AppointmentsView';
-import DoctorProfileView from './components/doctor/DoctorProfile';
-import PatientProfileView from './components/patient/PatientProfileView';
+import DoctorProfileEdit from './components/doctor/DoctorProfileEdit';
+import PatientProfileEdit from './components/patient/PatientProfileEdit';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ManageDoctors from './components/admin/ManageDoctors';
 import { DoctorProfile } from './lib/supabase';
@@ -19,7 +19,10 @@ function AppContent() {
   const [currentView, setCurrentView] = useState('home');
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile | null>(null);
   const [openAppointmentId, setOpenAppointmentId] = useState<string | null>(null);
-  const [showAuth, setShowAuth] = useState(false);
+  
+  // Check if URL has ?auth=true to show auth page
+  const urlParams = new URLSearchParams(window.location.search);
+  const showAuthFromUrl = urlParams.get('auth') === 'true';
 
   // When a signup is in progress show a focused signing-up screen so the user
   // isn't bounced back to the landing page during the account creation flow.
@@ -80,9 +83,9 @@ function AppContent() {
 }
 
     if (!user || !profile) {
-    // Show landing page for unauthenticated visitors; they can open auth modal/page when ready
-    if (showAuth) return <AuthPage />;
-    return <LandingPage onShowAuth={() => setShowAuth(true)} />;
+    // Show auth page if URL has ?auth=true, otherwise show landing page
+    if (showAuthFromUrl) return <AuthPage />;
+    return <LandingPage />;
   }
 
   const handleNavigate = (view: string, payload?: { openAppointmentId?: string }) => {
@@ -107,8 +110,7 @@ function AppContent() {
         case 'appointments':
           return <AppointmentsView openAppointmentId={openAppointmentId} onClearOpen={() => setOpenAppointmentId(null)} />;
         case 'profile':
-          // Fetch extended patient profile locally to display detailed fields
-          return <PatientProfileView profile={profile} />;
+          return <PatientProfileEdit />;
         default:
           return <PatientHome onNavigate={handleNavigate} />;
       }
@@ -121,7 +123,7 @@ function AppContent() {
         case 'appointments':
           return <AppointmentsView />;
         case 'profile':
-          return <DoctorProfileView />;
+          return <DoctorProfileEdit />;
         default:
           return <DoctorHome onNavigate={handleNavigate} />;
       }

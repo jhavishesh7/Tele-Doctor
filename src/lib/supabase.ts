@@ -17,6 +17,7 @@ export interface Profile {
   full_name: string;
   email: string;
   avatar_url: string | null;
+  profile_picture_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -43,6 +44,15 @@ export interface DoctorProfile {
   is_verified: boolean;
   is_visible: boolean;
   rank_score: number;
+  nmc_number: string | null;
+  citizenship_document_url: string | null;
+  mbbs_certificate_url: string | null;
+  md_certificate_url: string | null;
+  has_md: boolean;
+  profile_completed: boolean;
+  profile_completed_at: string | null;
+  verification_requested_at: string | null;
+  verification_notes: string | null;
   created_at: string;
   updated_at: string;
   profiles?: Profile;
@@ -55,12 +65,17 @@ export interface PatientProfile {
   phone: string;
   date_of_birth: string | null;
   address: string;
+  citizenship_document_url: string | null;
+  profile_completed: boolean;
+  profile_completed_at: string | null;
   created_at: string;
   updated_at: string;
   profiles?: Profile;
 }
 
 export type AppointmentStatus = 'pending' | 'proposed' | 'confirmed' | 'completed' | 'cancelled';
+export type AppointmentType = 'online' | 'offline';
+export type CallStatus = 'not_started' | 'waiting' | 'active' | 'ended';
 
 export interface Appointment {
   id: string;
@@ -73,10 +88,32 @@ export interface Appointment {
   location: string;
   patient_notes: string;
   doctor_notes: string;
+  appointment_type: AppointmentType;
+  call_session_id: string | null;
+  call_status: CallStatus;
+  call_started_at: string | null;
+  call_ended_at: string | null;
   created_at: string;
   updated_at: string;
   patient_profiles?: PatientProfile;
   doctor_profiles?: DoctorProfile;
+}
+
+export interface CallSession {
+  id: string;
+  appointment_id: string;
+  doctor_id: string;
+  patient_id: string;
+  status: 'waiting' | 'active' | 'ended';
+  doctor_joined: boolean;
+  patient_joined: boolean;
+  doctor_peer_id: string | null;
+  patient_peer_id: string | null;
+  signaling_data: any;
+  started_at: string | null;
+  ended_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Notification {
