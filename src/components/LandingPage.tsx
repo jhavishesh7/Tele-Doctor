@@ -93,7 +93,7 @@ export default function LandingPage() {
             >
               <div className="inline-flex items-center gap-2 bg-teal-100 text-teal-700 px-4 py-2 rounded-full text-sm font-medium animate-bounce">
                 <Zap className="w-4 h-4" />
-                <span>Nepal's #1 Healthcare Platform</span>
+                <span>Nepal's First Healthcare Platform</span>
               </div>
               
               <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 leading-tight">

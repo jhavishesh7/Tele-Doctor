@@ -10,25 +10,25 @@ export const DEBUG_CONFIG = {
    * When false, document uploads are NOT required for profile completion
    * When true, all documents must be uploaded
    */
-  REQUIRE_DOCUMENTS: false,
+  REQUIRE_DOCUMENTS: true,
 
   /**
    * When false, profile picture upload is NOT required
    * When true, profile picture must be uploaded
    */
-  REQUIRE_PROFILE_PICTURE: false,
+  REQUIRE_PROFILE_PICTURE: true,
 
   /**
    * When false, doctor verification workflow is bypassed
    * When true, doctors must wait for admin verification
    */
-  ENABLE_DOCTOR_VERIFICATION: false,
+  ENABLE_DOCTOR_VERIFICATION: true,
 
   /**
    * When false, NMC number is NOT required
    * When true, NMC number must be provided
    */
-  REQUIRE_NMC_NUMBER: false,
+  REQUIRE_NMC_NUMBER: true,
 
   /**
    * When true, shows debug information in console
