@@ -27,7 +27,22 @@ function AppContent() {
   const [openAppointmentId, setOpenAppointmentId] = useState<string | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [legalPage, setLegalPage] = useState<string | null>(null);
-  const [showResetPassword, setShowResetPassword] = useState(false);
+  
+  // Initialize reset password check from URL hash immediately
+  const getInitialResetPasswordState = () => {
+    const path = window.location.pathname;
+    const hash = window.location.hash;
+    if (path === '/reset-password') return true;
+    if (hash) {
+      const hashParams = new URLSearchParams(hash.substring(1));
+      const type = hashParams.get('type');
+      const hasAccessToken = hashParams.get('access_token');
+      return type === 'recovery' || (hasAccessToken && hash.includes('recovery'));
+    }
+    return false;
+  };
+  
+  const [showResetPassword, setShowResetPassword] = useState(getInitialResetPasswordState());
   
   // Check for public routes
   const checkRoutes = () => {
@@ -40,7 +55,12 @@ function AppContent() {
     setShowResetPassword(false);
     
     // Check for reset password (can be in path or hash)
-    if (path === '/reset-password' || hash.includes('type=recovery')) {
+    // Supabase redirects with hash like: #access_token=...&type=recovery&...
+    const hashParams = hash ? new URLSearchParams(hash.substring(1)) : null;
+    const isRecoveryType = hashParams?.get('type') === 'recovery' || hash.includes('type=recovery');
+    const hasAccessToken = hashParams?.get('access_token') || hash.includes('access_token');
+    
+    if (path === '/reset-password' || isRecoveryType || (hasAccessToken && hash.includes('recovery'))) {
       setShowResetPassword(true);
       return;
     }
@@ -63,16 +83,24 @@ function AppContent() {
   };
 
   useEffect(() => {
+    // Check routes immediately
     checkRoutes();
+    
+    // Also check on hashchange (for Supabase redirects)
+    const handleHashChange = () => {
+      checkRoutes();
+    };
     
     // Listen for popstate events (back/forward navigation)
     window.addEventListener('popstate', checkRoutes);
+    window.addEventListener('hashchange', handleHashChange);
     
-    // Also check on any navigation
+    // Also check on any navigation (with a small delay to ensure hash is available)
     const interval = setInterval(checkRoutes, 100);
     
     return () => {
       window.removeEventListener('popstate', checkRoutes);
+      window.removeEventListener('hashchange', handleHashChange);
       clearInterval(interval);
     };
   }, []);
