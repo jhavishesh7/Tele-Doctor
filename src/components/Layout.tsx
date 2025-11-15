@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, Notification } from '../lib/supabase';
-import { Bell, User, LogOut, Settings, Calendar, Home, Users, Menu, X } from 'lucide-react';
+import { Bell, User, LogOut, Settings, Calendar, Home, Users, Menu, X, FileText } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -88,6 +88,7 @@ export default function Layout({ children, currentView, onNavigate }: LayoutProp
       return [
         ...commonItems,
         { id: 'doctors', label: 'Find Doctors', icon: Users },
+        { id: 'vault', label: 'Vault', icon: FileText },
         { id: 'profile', label: 'Profile', icon: User },
       ];
     }

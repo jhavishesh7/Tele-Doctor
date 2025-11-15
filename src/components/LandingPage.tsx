@@ -451,7 +451,19 @@ export default function LandingPage() {
               <div className="space-y-2 text-sm text-gray-400">
                 <div><a href="#" className="hover:text-teal-400 transition-colors">Patients</a></div>
                 <div><a href="#" className="hover:text-teal-400 transition-colors">Doctors</a></div>
-                <div><a href="#" className="hover:text-teal-400 transition-colors">Privacy Policy</a></div>
+                <div>
+                  <a 
+                    href="/privacy" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.history.pushState({}, '', '/privacy');
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }}
+                    className="hover:text-teal-400 transition-colors"
+                  >
+                    Privacy Policy
+                  </a>
+                </div>
               </div>
             </div>
 
@@ -467,9 +479,39 @@ export default function LandingPage() {
           <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-400">
             <div>© 2025 MeroClinic. All rights reserved to BlackBytes.</div>
             <div className="flex items-center gap-6">
-              <a href="#" className="hover:text-teal-400 transition-colors">Terms</a>
-              <a href="#" className="hover:text-teal-400 transition-colors">Privacy</a>
-              <a href="#" className="hover:text-teal-400 transition-colors">Cookies</a>
+              <a 
+                href="/terms" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.history.pushState({}, '', '/terms');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }}
+                className="hover:text-teal-400 transition-colors"
+              >
+                Terms
+              </a>
+              <a 
+                href="/privacy" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.history.pushState({}, '', '/privacy');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }}
+                className="hover:text-teal-400 transition-colors"
+              >
+                Privacy
+              </a>
+              <a 
+                href="/cookies" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.history.pushState({}, '', '/cookies');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }}
+                className="hover:text-teal-400 transition-colors"
+              >
+                Cookies
+              </a>
             </div>
           </div>
         </div>

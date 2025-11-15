@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthPage from './components/AuthPage';
 import LandingPage from './components/LandingPage';
@@ -10,8 +10,14 @@ import BookAppointment from './components/patient/BookAppointment';
 import AppointmentsView from './components/shared/AppointmentsView';
 import DoctorProfileEdit from './components/doctor/DoctorProfileEdit';
 import PatientProfileEdit from './components/patient/PatientProfileEdit';
+import PatientVault from './components/patient/PatientVault';
+import PatientPublicView from './components/patient/PatientPublicView';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ManageDoctors from './components/admin/ManageDoctors';
+import TermsOfService from './components/LegalPages/TermsOfService';
+import PrivacyPolicy from './components/LegalPages/PrivacyPolicy';
+import CookiePolicy from './components/LegalPages/CookiePolicy';
+import ResetPassword from './components/ResetPassword';
 import { DoctorProfile } from './lib/supabase';
 
 function AppContent() {
@@ -19,10 +25,82 @@ function AppContent() {
   const [currentView, setCurrentView] = useState('home');
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile | null>(null);
   const [openAppointmentId, setOpenAppointmentId] = useState<string | null>(null);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [legalPage, setLegalPage] = useState<string | null>(null);
+  const [showResetPassword, setShowResetPassword] = useState(false);
   
+  // Check for public routes
+  const checkRoutes = () => {
+    const path = window.location.pathname;
+    const hash = window.location.hash;
+    
+    // Reset states
+    setShareToken(null);
+    setLegalPage(null);
+    setShowResetPassword(false);
+    
+    // Check for reset password (can be in path or hash)
+    if (path === '/reset-password' || hash.includes('type=recovery')) {
+      setShowResetPassword(true);
+      return;
+    }
+    
+    // Check for patient public view
+    const patientMatch = path.match(/^\/patient\/([a-f0-9-]+)$/i);
+    if (patientMatch) {
+      setShareToken(patientMatch[1]);
+      return;
+    }
+    
+    // Check for legal pages
+    if (path === '/terms' || path === '/terms-of-service') {
+      setLegalPage('terms');
+    } else if (path === '/privacy' || path === '/privacy-policy') {
+      setLegalPage('privacy');
+    } else if (path === '/cookies' || path === '/cookie-policy') {
+      setLegalPage('cookies');
+    }
+  };
+
+  useEffect(() => {
+    checkRoutes();
+    
+    // Listen for popstate events (back/forward navigation)
+    window.addEventListener('popstate', checkRoutes);
+    
+    // Also check on any navigation
+    const interval = setInterval(checkRoutes, 100);
+    
+    return () => {
+      window.removeEventListener('popstate', checkRoutes);
+      clearInterval(interval);
+    };
+  }, []);
+
   // Check if URL has ?auth=true to show auth page
   const urlParams = new URLSearchParams(window.location.search);
   const showAuthFromUrl = urlParams.get('auth') === 'true';
+
+  // Show reset password page
+  if (showResetPassword) {
+    return <ResetPassword />;
+  }
+
+  // Show public patient view if share token is in URL
+  if (shareToken) {
+    return <PatientPublicView />;
+  }
+
+  // Show legal pages
+  if (legalPage === 'terms') {
+    return <TermsOfService />;
+  }
+  if (legalPage === 'privacy') {
+    return <PrivacyPolicy />;
+  }
+  if (legalPage === 'cookies') {
+    return <CookiePolicy />;
+  }
 
   // When a signup is in progress show a focused signing-up screen so the user
   // isn't bounced back to the landing page during the account creation flow.
@@ -111,6 +189,8 @@ function AppContent() {
           return <AppointmentsView openAppointmentId={openAppointmentId} onClearOpen={() => setOpenAppointmentId(null)} />;
         case 'profile':
           return <PatientProfileEdit />;
+        case 'vault':
+          return <PatientVault />;
         default:
           return <PatientHome onNavigate={handleNavigate} />;
       }

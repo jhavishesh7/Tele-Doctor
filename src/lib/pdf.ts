@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Appointment, PatientProfile } from './supabase';
 import { supabase } from './supabase';
+import { StorageBucket } from './storage';
 
 export async function generateAppointmentPDF(
   appointment: Appointment | Record<string, unknown>,
@@ -172,10 +173,109 @@ export async function generateAppointmentPDF(
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
     pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    
+    // Save PDF to blob
+    const pdfBlob = pdf.output('blob');
+    const pdfFile = new File([pdfBlob], `appointment_${appt.id}_report.pdf`, { type: 'application/pdf' });
+    
+    // Download PDF for user
     pdf.save(`appointment_${appt.id}_report.pdf`);
+    
+    // Return the PDF blob for saving to storage
+    return pdfFile;
   } catch (err) {
     console.error('Error generating PDF:', err);
+    throw err;
   } finally {
     document.body.removeChild(container);
+  }
+}
+
+/**
+ * Generate PDF and save to storage and database
+ */
+export async function generateAndSaveConsultationSummary(
+  appointment: Appointment | Record<string, unknown>,
+  consultation: Record<string, unknown>
+): Promise<void> {
+  try {
+    // Generate PDF
+    const pdfFile = await generateAppointmentPDF(appointment, consultation);
+    const appt = appointment as Appointment;
+    
+    // Get consultation ID from the consultation record
+    const consultationId = consultation['id'] as string;
+    if (!consultationId) {
+      throw new Error('Consultation ID is required');
+    }
+    
+    // Get patient profile to determine storage path
+    let patientProfile: PatientProfile | undefined = appt.patient_profiles as PatientProfile | undefined;
+    if (!patientProfile && appt.patient_id) {
+      const { data: fetched } = await supabase
+        .from('patient_profiles')
+        .select('id')
+        .eq('id', appt.patient_id)
+        .maybeSingle();
+      
+      if (!fetched) {
+        const { data: fetchedByUserId } = await supabase
+          .from('patient_profiles')
+          .select('id')
+          .eq('user_id', appt.patient_id)
+          .maybeSingle();
+        if (fetchedByUserId) {
+          patientProfile = { id: fetchedByUserId.id } as PatientProfile;
+        }
+      } else {
+        patientProfile = { id: fetched.id } as PatientProfile;
+      }
+    }
+    
+    if (!patientProfile?.id) {
+      throw new Error('Patient profile not found');
+    }
+    
+    // Upload PDF to storage
+    const fileExt = 'pdf';
+    const fileName = `consultation_${consultationId}_${Date.now()}.${fileExt}`;
+    const filePath = `consultation_summaries/${patientProfile.id}/${fileName}`;
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('Documents' as StorageBucket)
+      .upload(filePath, pdfFile, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+    
+    if (uploadError) {
+      throw new Error(`Failed to upload PDF: ${uploadError.message}`);
+    }
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('Documents' as StorageBucket)
+      .getPublicUrl(uploadData.path);
+    
+    // Save to consultation_summaries table
+    const { error: insertError } = await supabase
+      .from('consultation_summaries')
+      .insert({
+        consultation_id: consultationId,
+        appointment_id: appt.id,
+        patient_id: patientProfile.id,
+        doctor_id: appt.doctor_id,
+        pdf_url: publicUrl,
+        pdf_path: uploadData.path,
+        file_size: pdfFile.size,
+      });
+    
+    if (insertError) {
+      console.error('Failed to save consultation summary record:', insertError);
+      // Don't throw - PDF was generated and uploaded, just DB record failed
+    }
+  } catch (err) {
+    console.error('Error saving consultation summary:', err);
+    // Don't throw - allow the consultation to complete even if PDF save fails
   }
 }

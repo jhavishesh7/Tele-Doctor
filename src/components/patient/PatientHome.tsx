@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase, Appointment } from '../../lib/supabase';
-import { Calendar, Clock, Users, TrendingUp } from 'lucide-react';
+import { Calendar, Clock, Users, TrendingUp, FileText } from 'lucide-react';
 
 interface PatientHomeProps {
   onNavigate: (view: string, payload?: { openAppointmentId?: string }) => void;
@@ -191,6 +191,20 @@ export default function PatientHome({ onNavigate }: PatientHomeProps) {
           >
             <Users className="w-5 h-5" />
             Browse Doctors
+          </button>
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl p-8 text-white">
+          <h2 className="text-2xl font-bold mb-2">Document Vault</h2>
+          <p className="mb-6 text-purple-50">
+            Securely store and manage all your medical documents, reports, and consultation summaries
+          </p>
+          <button
+            onClick={() => onNavigate('vault')}
+            className="bg-white text-purple-600 px-6 py-3 rounded-lg font-medium hover:bg-purple-50 transition-colors inline-flex items-center gap-2"
+          >
+            <FileText className="w-5 h-5" />
+            Open Vault
           </button>
         </div>
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase, Appointment } from '../../lib/supabase';
 import { X, Calendar, Clock, FileText, CheckCircle, XCircle, Video, PhoneCall } from 'lucide-react';
-import { generateAppointmentPDF } from '../../lib/pdf';
+import { generateAndSaveConsultationSummary } from '../../lib/pdf';
 import { useCallSession } from '../../hooks/useCallSession';
 import VideoCall from './VideoCall';
 
@@ -317,6 +317,16 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
         }
       }
 
+      // Generate and save consultation summary PDF
+      if (consult) {
+        try {
+          await generateAndSaveConsultationSummary(appointment, consult);
+        } catch (pdfErr) {
+          console.error('Failed to save consultation summary PDF:', pdfErr);
+          // Don't block completion if PDF save fails
+        }
+      }
+
       // Notify patient about completed consultation
       const patientUserId = (appointment.patient_profiles as any)?.user_id;
       await supabase.from('notifications').insert({
@@ -385,7 +395,8 @@ export default function AppointmentDetails({ appointment, onClose, onUpdate }: A
                   onClick={async () => {
                     if (!consultation) return;
                     try {
-                      await generateAppointmentPDF(appointmentData, consultation);
+                      // Generate and save if not already saved, also downloads for user
+                      await generateAndSaveConsultationSummary(appointmentData, consultation);
                     } catch (err) {
                       console.error('Failed to generate PDF', err);
                     }
